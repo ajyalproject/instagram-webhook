@@ -41,9 +41,10 @@ def webhook():
 
 # Fungsi untuk mengirim pesan menggunakan Graph API
 def send_message(recipient_id, message):
-    url = f"https://graph.facebook.com/v16.0/me/messages"
+    url = f"https://graph.facebook.com/v21.0/me/messages"
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}"
+        "Content-Type: application/json"
     }
     payload = {
         "recipient": {"id": recipient_id},
