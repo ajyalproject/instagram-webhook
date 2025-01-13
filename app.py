@@ -1,15 +1,20 @@
 from flask import Flask, request, jsonify
+import requests
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 
 app = Flask(__name__)
 
-# Ambil Verify Token dari environment variable
-VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
-
+# Endpoint untuk verifikasi Webhook
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     if request.method == 'GET':
-        # Verifikasi Webhook
+        # Verifikasi Webhook dengan token
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
@@ -20,12 +25,44 @@ def webhook():
             return 'Forbidden', 403
 
     elif request.method == 'POST':
-        # Proses event yang dikirim oleh Facebook
-        data = request.get_json()
-        print("Received Webhook Event:", data)
+        # Proses pesan yang masuk
+        data = request.json
+        if data.get('entry'):
+            for entry in data['entry']:
+                messaging = entry.get('messaging', [])
+                for message_event in messaging:
+                    sender_id = message_event['sender']['id']
+                    if 'message' in message_event:  # Pesan diterima
+                        user_message = message_event['message'].get('text', '')
+                        response_message = generate_response(user_message)
+                        send_message(sender_id, response_message)
+        return 'EVENT_RECEIVED', 200
 
-        # Tambahkan logika pemrosesan di sini jika diperlukan
-        return jsonify({"status": "success"}), 200
+
+# Fungsi untuk mengirim pesan menggunakan Graph API
+def send_message(recipient_id, message):
+    url = f"https://graph.facebook.com/v16.0/me/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}"
+    }
+    payload = {
+        "recipient": {"id": recipient_id},
+        "message": {"text": message}
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    if response.status_code != 200:
+        print(f"Error sending message: {response.text}")
+
+
+# Fungsi untuk membuat respons (sederhana)
+def generate_response(user_message):
+    if "halo" in user_message.lower():
+        return "Halo! Ada yang bisa saya bantu?"
+    elif "bye" in user_message.lower():
+        return "Sampai jumpa! Semoga harimu menyenangkan!"
+    else:
+        return "Maaf, saya belum mengerti pesan Anda. Bisa dijelaskan lebih detail?"
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(port=5000, debug=True)
